@@ -30,7 +30,7 @@ sim_data_LVJSDM <- function(n_species=30,
                             out_dir="outputs/R_sim_data/") {
 
   ## Output directory
-  dir.create(out_dir)
+  dir.create(out_dir, showWarnings=FALSE)
   
   ## Set seed
   set.seed(seed)

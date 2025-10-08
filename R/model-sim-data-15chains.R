@@ -40,10 +40,19 @@ n_q <- ncol(X)
 n_species <- ncol(Y)
 
 ## =======================================
+## MCMC parameters
+## =======================================
+
+burnin <- 5000
+mcmc <- 5000
+thin <- 5
+ngibbs <- burnin + mcmc
+nchains <- 15
+
+## =======================================
 ## Starting values
 ## =======================================
 
-nchains <- 15
 seed <- 1234
 set.seed(seed)
 alpha_start <- rnorm(nchains, 0, 1)
@@ -54,16 +63,6 @@ V_alpha_start <- runif(nchains, 1, 2)
 starting_values <- list(
   alpha=alpha_start, beta=beta_start, lambda=lambda_start,
   W=W_start, V_alpha=V_alpha_start)
-
-## =======================================
-## MCMC parameters
-## =======================================
-
-burnin <- 5000
-mcmc <- 5000
-thin <- 5
-ngibbs <- burnin + mcmc
-nchains <- 5
 
 ## =======================================
 ## Model 1
@@ -106,6 +105,13 @@ Rhat_2 <- compute_rhat(mod_2)
 
 # =======================================
 # Model 3 sorting species automatically
+# ACP sur quantile residuals
+# =======================================
+
+
+# =======================================
+# Model 4 sorting species automatically
+# ACOP sur vrais residus
 # =======================================
 
 
