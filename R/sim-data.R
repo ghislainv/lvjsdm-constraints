@@ -57,10 +57,13 @@ sim_data_LVJSDM <- function(n_species=30,
   diag(lambda_target) <- neg_val_diag * axis_imp
   # Large positive values for some species
   for (i in 1:n_q) {
-    lambda_target[1:n_q, n_q + i] <- scale_off_diag_unconstrained * lambda_target[1:n_q, n_q + i]  # "Off diagonal" for alternative species 
-    lambda_target[i, n_q + i] <- n_q - i + 1  # Large values for unconstrained species   
+    # "Off diagonal" for alternative species 
+    lambda_target[1:n_q, n_q + i] <- scale_off_diag_unconstrained * lambda_target[1:n_q, n_q + i]
+    # Large values for unconstrained species
+    lambda_target[i, n_q + i] <- n_q - i + 1
     if (i > 1) {
-      lambda_target[1:(i - 1), i] <- scale_off_diag_constrained * lambda_target[1:(i - 1), i]  # Set off-diagonal loadings for constrained species
+      # Set off-diagonal loadings for constrained species
+      lambda_target[1:(i - 1), i] <- scale_off_diag_constrained * lambda_target[1:(i - 1), i]
     }
   }
 

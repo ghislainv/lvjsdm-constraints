@@ -1,0 +1,59 @@
+#+startup: inlineimages
+
+* lambda not fixed to zero
+
+** Context
+
+- seed=1234
+- 8 chains
+- mcmc=10000
+
+#+begin_src R :results output :session *R:lvjsdm-constraints* :exports both
+lambda_start <- rnorm(nchains, 0, 1)
+W_start <- rnorm(nchains, 0, 1)
+#+end_src
+
+** Convergence
+
+Chains 5 and 8 provide incorrect estimates.
+
+#+attr_org: :width 600px
+[[file:~/Code/lvjsdm-constraints/outputs/mcmc_noconv.png]]
+
+** Starting values
+
+> W_start
+[1] -0.6937202 -1.4482049  0.5747557 -1.0236557 *-0.0151383* -0.9359486  1.1022975 *-0.4755931*
+> lambda_start
+[1] -0.5110095 -0.9111954 -0.8371717  2.4158352  *0.1340882* -0.4906859 -0.4405479  *0.459589*
+
+** Rhat
+
+  Variable  maxRhat
+1    alpha 1.044905
+2   Valpha 1.056457
+3     beta 1.919885
+4   lambda 5.918047
+5        W 5.524755
+
+* lambda fixed to zero
+
+** Context
+
+#+begin_src R :results output :session *R:lvjsdm-constraints* :exports both
+lambda_start <- rep(0, nchains)
+W_start <- rnorm(nchains, 0, 1)
+#+end_src
+
+** Convergence
+
+#+attr_org: :width 600px
+[[file:~/Code/lvjsdm-constraints/outputs/mcmc_conv.png]]
+** Rhat
+
+  Variable  maxRhat
+1    alpha 1.067599
+2   Valpha 1.095308
+3     beta 1.013846
+4   lambda 1.056916
+5        W 1.030027

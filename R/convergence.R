@@ -24,10 +24,10 @@ compute_rhat <- function(model_output) {
   # MCMC lists
   mcmc_list_alpha <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.alpha"), arr2mcmc))
   mcmc_list_V_alpha <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.V_alpha"), arr2mcmc))
-  mcmc_list_param <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.sp"), arr2mcmc))
+  mcmc_list_sp <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.sp"), arr2mcmc))
   mcmc_list_lv <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.latent"), arr2mcmc))
   mcmc_list_lambda <- mcmc.list(
-    lapply(mcmc_list_param[, grep("lambda", colnames(mcmc_list_param[[1]]), value=TRUE)], arr2mcmc))
+    lapply(mcmc_list_sp[, grep("lambda", colnames(mcmc_list_sp[[1]]), value=TRUE)], arr2mcmc))
   mcmc_list_deviance <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.Deviance"), arr2mcmc))
   nsamp <- nrow(mcmc_list_alpha[[1]])
 
@@ -35,7 +35,7 @@ compute_rhat <- function(model_output) {
   psrf_alpha <- max(gelman.diag(mcmc_list_alpha,
                                  multivariate=FALSE)$psrf[,2])
   psrf_V_alpha <- gelman.diag(mcmc_list_V_alpha)$psrf[,2]
-  psrf_beta <- max(gelman.diag(mcmc_list_param[, grep("beta", colnames(mcmc_list_param[[1]]))],
+  psrf_beta <- max(gelman.diag(mcmc_list_sp[, grep("beta", colnames(mcmc_list_sp[[1]]))],
                                 multivariate=FALSE)$psrf[,2])
   psrf_lambda <- max(gelman.diag(mcmc_list_lambda,
                                   multivariate=FALSE)$psrf[,2], na.rm=TRUE)
@@ -63,6 +63,26 @@ plot_rhat <- function(Rhat) {
     ylim(0, max(Rhat$Rhat) + 0.2) +
     coord_flip()
   return(p)
+}
+
+##' @title Return an mcmc list for a selection of lambdas
+##' @param model_output List of model output obtained from parallel
+##'   computing
+##' @param re Regular expression to select lambdas. Default to
+##'   "lambdas" for all lambdas. Could also be
+##'   "(sp_1\\.lambda_1|sp_4\\.lambda_1)" for example.
+##' @return
+##' @author Ghislain Vieilledent
+mcmc_lambdas <- function(model_output, re="lambdas") {
+  # Parameters for coda object
+  burnin <- model_output[[1]]$model_spec$burnin
+  ngibbs <- burnin + model_output[[1]]$model_spec$mcmc
+  thin <-  model_output[[1]]$model_spec$thin
+  # MCMC lists
+  mcmc_list_sp <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.sp"), arr2mcmc))
+  mcmc_list_lambda <- mcmc.list(
+    lapply(mcmc_list_sp[, grep(re, colnames(mcmc_list_sp[[1]]), value=TRUE)], arr2mcmc))
+  return(mcmc_list_lambda)
 }
 
 # End of file

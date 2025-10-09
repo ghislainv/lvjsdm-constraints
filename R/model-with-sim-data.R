@@ -10,7 +10,7 @@ library(jSDM)
 
 ## Simulating data
 source("sim-data.R")
-out_dir <- "outputs/R_sim_data/"
+out_dir <- "outputs"
 data <- sim_data_LVJSDM(n_species=30,
                         n_sites=100,
                         n_p=3,  # Number of explanatory variables (including intercept)
