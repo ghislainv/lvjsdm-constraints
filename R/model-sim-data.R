@@ -237,6 +237,19 @@ dev.off()
 
 ## To be done
 
+## for quantile residuals we need to have a vector of random uniform samples the same size as ModelData$Y
+randomizer <- runif(n_sites * n_species)
+
+### calculation of normalized quantile residuals as if we had a GLM with Bernoulli distribution and probit link function
+qresiduals<-qnorm(pbinom(ModelData$Y-1,1,pnorm(logLiks[,x]))+randomizer*dbinom(ModelData$Y,1,pnorm(logLiks[,x])))
+
+### putting these residuals in a site*species matrix format
+##qresidSpeciesMatrix<-sapply(tapply(1:length(ModelData$Y),Species,function(x){qresiduals[x]}),I,simplify=TRUE)
+qresidSpeciesMatrix<-sapply(tapply(1:length(ModelData$Y),ModelConsts$beta0,function(x){qresiduals[x]}),I,simplify=TRUE)
+
+#performing PCA of this residual matrix, without centering & scaling
+testPCA<-prcomp(qresidSpeciesMatrix,center=FALSE,scale=FALSE)
+
 # =======================================
 # Approach comparison
 # =======================================
