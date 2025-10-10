@@ -2,7 +2,8 @@ require(jSDM)
 require(doParallel)
 require(foreach)
 
-parallel_inference <- function(Y, X, nchains, burnin, mcmc, thin, starting_values, seed) {
+parallel_inference <- function(Y, X, nchains, burnin, mcmc, thin,
+                               starting_values, n_latent, seed) {
   ## Make a cluster for parallel MCMCs
   ncores <- nchains ## One core for each MCMC chains
   clust <- makeCluster(ncores)
@@ -20,12 +21,12 @@ parallel_inference <- function(Y, X, nchains, burnin, mcmc, thin, starting_value
       # Explanatory variables
       site_formula=~x1+x2,
       site_data=X,
-      n_latent=3,
+      n_latent=n_latent,
       site_effect="random",
       # Starting values
       alpha_start=starting_values$alpha[i],
       beta_start=starting_values$beta[i],
-      lambda_start=starting_values$lambda[i],
+      lambda_start=getElement(starting_values$lambda, i),
       W_start=starting_values$W[i],
       V_alpha=starting_values$V_alpha[i],
       # Priors
