@@ -1,4 +1,5 @@
 outputs
+!outputs/Rhat_model_comparison.csv
 
 # History files
 .Rhistory
