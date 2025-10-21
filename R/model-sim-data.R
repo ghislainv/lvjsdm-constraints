@@ -13,6 +13,8 @@ library(dplyr)
 library(here)
 library(ggplot2)
 library(readr)
+library(DHARMa)
+library(glue)
 
 # Source files
 source("R/sim-data.R")
@@ -24,6 +26,7 @@ source("R/convergence.R")
 # =======================================
 
 out_dir <- here("outputs")
+seed <- 1234
 data <- sim_data_LVJSDM(
   n_species=30,
   n_sites=100,
@@ -31,7 +34,7 @@ data <- sim_data_LVJSDM(
   n_q=3,
   V_alpha_target=0.1,
   neg_val_diag=-0.1,
-  seed=1234,
+  seed=seed,
   out_dir=out_dir)
 X <- data$X
 Y <- data$Y
@@ -56,7 +59,6 @@ nchains <- 8
 # Starting values
 # =======================================
 
-seed <- 1234
 set.seed(seed)
 alpha_start <- rnorm(nchains, 0, 1)
 beta_start <- rnorm(nchains, 0, 1)
@@ -78,9 +80,9 @@ starting_values <- list(
   alpha=alpha_start, beta=beta_start, lambda=lambda_start,
   W=W_start, V_alpha=V_alpha_start)
 
-# =======================================
-# Model 1
-# =======================================
+# ===========================================
+# Model 1 no sorting --> convergence problems
+# ===========================================
 
 # mod_1
 mod_1 <- parallel_inference(
@@ -91,7 +93,9 @@ mod_1 <- parallel_inference(
   starting_values=starting_values, seed=seed)
 
 # Rhat
-Rhat_1 <- compute_rhat(mod_1)
+Rhat_1 <- compute_rhat(mod_1) |>
+  rename(maxRhat_NoSort=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_1.csv"))
 
 # Plot traces
 mcmc_list <- mcmc_lambdas(
@@ -107,7 +111,9 @@ dev.off()
 # =======================================
 
 # Sorting species
-Y <- read.csv(file=file.path(out_dir, "Y.csv"), header=TRUE, row.names=1)
+Y <- read.csv(
+  file=file.path(out_dir, "Y.csv"),
+  header=TRUE, row.names=1)
 Y_sort <- Y
 Y_sort[, 1] <- Y[, 4]
 Y_sort[, 2] <- Y[, 5]
@@ -125,18 +131,20 @@ mod_2 <- parallel_inference(
   starting_values=starting_values, seed=seed)
 
 # Rhat
-Rhat_2 <- compute_rhat(mod_2)
+Rhat_2 <- compute_rhat(mod_2) |>
+  rename(maxRhat_Sort=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_2.csv"))
 
 # Plot traces
 mcmc_list <- mcmc_lambdas(
   mod_2,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
-png(here(out_dir, "mcmc_sort.png"))
+png(file.path(out_dir, "mcmc_sort.png"))
 plot(mcmc_list)
 dev.off()
 
-## # Identify incorrect chains
+## # Identify incorrect chains when starting lambdas != 0
 ## unlist(lapply(mcmc_list, function(x) {mean(x[,1])}))
 ## ## --> chains 5 and 8
 ## # Initial values
@@ -144,36 +152,40 @@ dev.off()
 ## lambda_start[c(4, 8)]
 
 # =======================================
-# Model 3 sorting species automatically
-# using PCA on residuals
+# Model with no latent variables
 # =======================================
 
 # Starting values
-starting_values_3 <- starting_values[c("alpha", "V_alpha", "beta")]
+starting_values_nolv <- starting_values[c("alpha", "V_alpha", "beta")]
 
-# mod_3
-mod_3 <- parallel_inference(
+# mod_nolv (no latent variables)
+mod_nolv <- parallel_inference(
   Y, X,
   nchains=1,
   burnin=burnin, mcmc=mcmc, thin=thin,
   n_latent=0,
-  starting_values=starting_values_3, seed=seed)
-mod_3 <- mod_3[[1]]
+  starting_values=starting_values_nolv, seed=seed)
+mod_nolv <- mod_nolv[[1]]
 
-# Residuals
-Z_latent <- mod_3$Z_latent  # ! Predictive posterior means
+# =======================================
+# Model 3 sorting species automatically
+# using PCA on residuals (feasable with jSDM, not HSMC)
+# =======================================
+
+# Residuals from latent Z
+Z_latent <- mod_nolv$Z_latent  # ! Predictive posterior means
 aXbeta <- matrix(0, nrow=n_sites, ncol=n_species)
 for (i in 1:n_sites) {
   X_i <- X[i, ]
-  alpha_i <- mod_3$mcmc.alpha[, i]
+  alpha_i <- mod_nolv$mcmc.alpha[, i]
   for (j in 1:n_species) {
-    beta_j <- mod_3$mcmc.sp[[j]]
+    beta_j <- mod_nolv$mcmc.sp[[j]]
     aXbeta[i, j] <- mean(alpha_i + X_i %*% t(beta_j))
   }
 }
 residuals <- Z_latent - aXbeta
 
-# ACP
+# ACP on residuals
 pca <- prcomp(residuals,  scale=FALSE)
 sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
@@ -191,12 +203,12 @@ p <- loadings |>
   xlab("lambda targets") +
   ylab("PCA loadings") +
   theme_bw() + guides(colour="none")
-ggsave(here(out_dir, "loadings_pca_lv.png"), p)
+ggsave(file.path(out_dir, "loadings_pca_lv.png"), p)
 corr <- loadings |>
   group_by(axis) |>
   summarize(corr=round(cor(pca, lv), 2)) |>
   ungroup() |>
-  write_csv(here(out_dir, "loadings_corr.csv"))
+  write_csv(file.path(out_dir, "loadings_corr.csv"))
 
 # Sorting species
 Y <- read.csv(
@@ -219,43 +231,230 @@ mod_3 <- parallel_inference(
   starting_values=starting_values, seed=seed)
 
 # Rhat
-Rhat_3 <- compute_rhat(mod_3)
+Rhat_3 <- compute_rhat(mod_3) |>
+  rename(maxRhat_Zres=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_3.csv"))
 
 # Plot traces
 mcmc_list <- mcmc_lambdas(
-  mod_2,
+  mod_3,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
-png(here(out_dir, "mcmc_sort_pca.png"))
+png(file.path(out_dir, "mcmc_sort_pca.png"))
 plot(mcmc_list)
 dev.off()
 
-# =======================================
+# ===========================================
 # Model 4 sorting species automatically
-# using PCA on quantile residuals
-# =======================================
+# using PCA on quantile residuals from DHARMa
+# ===========================================
 
-## To be done
+# Simulate data for each observation
+# from model with no latent variables.
+n_sim <- mcmc / thin
+sim_data <- matrix(NA, nrow=n_sites * n_species, ncol=n_sim)
+theta_sim <- array(NA, dim=c(n_sites, n_species, n_sim))
+# Prepare beta_sim
+beta_sim <- array(NA, dim=c(n_q, n_species, n_sim))
+for (j in 1:n_species) {
+  # Transpose mcmc to get dimensions c(n_q, n_sim)
+  beta_sim[, j, ] <- t(mod_nolv$mcmc.sp[[j]])
+}
+# Set seed and simulate observations
+set.seed(seed)
+for (s in 1:n_sim) {
+  alpha_sim <- mod_nolv$mcmc.alpha[s, ]
+  e_sim <- matrix(rnorm(n_sites * n_species, 0, 1), n_sites, n_species)
+  Z_sim <- alpha_sim + X %*% beta_sim[, , s] + e_sim
+  # pnorm is inverse-probit
+  theta_sim[, , s] <- matrix(pnorm(c(Z_sim)), nrow=n_sites)
+  # Presence-absence matrix Y
+  Y_sim <- matrix(0, n_sites, n_species)
+  Y_sim[Z_sim > 0] <- 1
+  sim_data[, s] <- c(Y_sim)
+}
+## # Check that theta_median ~= sim_mean
+## theta_median <- apply(theta_sim, c(1, 2), median)
+## sim_mean <- apply(sim_data, 1, mean)
+## plot(c(theta_median), sim_mean)
+## # Check residuals
+## dharma <- createDHARMa(
+##   simulatedResponse=sim_data,
+##   observedResponse=c(as.matrix(Y)),
+##   fittedPredictedResponse=c(theta_median),
+##   integerResponse=TRUE, seed=seed)
+## plot(dharma)
 
-## for quantile residuals we need to have a vector of random uniform samples the same size as ModelData$Y
-randomizer <- runif(n_sites * n_species)
+# Get residuals using package DHARMa
+qres <- DHARMa::getQuantile(
+  simulations=sim_data,
+  observed=c(as.matrix(Y)),
+  integerResponse=TRUE,
+  method="PIT")
 
-### calculation of normalized quantile residuals as if we had a GLM with Bernoulli distribution and probit link function
-qresiduals<-qnorm(pbinom(ModelData$Y-1,1,pnorm(logLiks[,x]))+randomizer*dbinom(ModelData$Y,1,pnorm(logLiks[,x])))
+# Scaled residuals as matrix nsites * nspecies
+qresiduals <- matrix(qres, nrow=n_sites)
 
-### putting these residuals in a site*species matrix format
-##qresidSpeciesMatrix<-sapply(tapply(1:length(ModelData$Y),Species,function(x){qresiduals[x]}),I,simplify=TRUE)
-qresidSpeciesMatrix<-sapply(tapply(1:length(ModelData$Y),ModelConsts$beta0,function(x){qresiduals[x]}),I,simplify=TRUE)
+# ACP on residuals
+pca <- prcomp(qresiduals,  scale=FALSE)
+sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
+sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
+sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
 
-#performing PCA of this residual matrix, without centering & scaling
-testPCA<-prcomp(qresidSpeciesMatrix,center=FALSE,scale=FALSE)
+# Correlation between PCA and LV loadings
+loadings <- data.frame(
+  pca=c(pca$rotation[, c("PC1", "PC2", "PC3")]),
+  lv=c(t(lambda_target)),
+  axis=rep(c("Axis 1", "Axis 2", "Axis 3"), each=n_species))
+p <- loadings |>
+  ggplot(aes(lv, pca, col=axis)) +
+  geom_point() +
+  facet_grid(rows=vars(axis)) +
+  xlab("lambda targets") +
+  ylab("PCA loadings") +
+  theme_bw() + guides(colour="none")
+ggsave(file.path(out_dir, "loadings_pca_lv_dharma.png"), p)
+corr <- loadings |>
+  group_by(axis) |>
+  summarize(corr=round(cor(pca, lv), 2)) |>
+  ungroup() |>
+  write_csv(file.path(out_dir, "loadings_corr_dharma.csv"))
+
+# Sorting species
+Y <- read.csv(
+  file=file.path(out_dir, "Y.csv"),
+  header=TRUE, row.names=1)
+Y_sort_pca <- Y
+Y_sort_pca[, 1] <- Y[, sp_max_PC1]
+Y_sort_pca[, 2] <- Y[, sp_max_PC2]
+Y_sort_pca[, 3] <- Y[, sp_max_PC3]
+Y_sort_pca[, sp_max_PC1] <- Y[, 1]
+Y_sort_pca[, sp_max_PC2] <- Y[, 2]
+Y_sort_pca[, sp_max_PC3] <- Y[, 3]
+
+# mod_4
+mod_4 <- parallel_inference(
+  Y_sort_pca, X,
+  nchains=nchains,
+  burnin=burnin, mcmc=mcmc, thin=thin,
+  n_latent=n_q,
+  starting_values=starting_values, seed=seed)
+
+# Rhat
+Rhat_4 <- compute_rhat(mod_4) |>
+  rename(maxRhat_Dhar=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_4.csv"))
+
+# Plot traces
+mcmc_list <- mcmc_lambdas(
+  mod_4,
+  re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
+)
+png(file.path(out_dir, "mcmc_sort_pca_dharma.png"))
+plot(mcmc_list)
+dev.off()
+
+# ===========================================
+# Model 5 sorting species automatically
+# using PCA on PIT residuals
+# ===========================================
+
+## PIT: probability integral transform.
+## For a reference on PIT residuals, see Warton et al. 2017:
+## https://doi.org/10.1371/journal.pone.0181790
+
+## For implementing PIT algorithm, see:
+## https://github.com/florianhartig/DHARMa/issues/168#issuecomment-623155563
+
+# Simulations and observations
+simulations <- sim_data
+observed <- c(as.matrix(Y))
+
+# Compute PIT residuals
+min <- apply(simulations < observed, 1, sum) / n_sim
+max <- apply(simulations <= observed, 1, sum) / n_sim
+set.seed(seed)
+PIT_residuals <- runif(n_sites * n_species, min, max)
+
+# Residuals as matrix nsites * nspecies
+qresiduals <- matrix(PIT_residuals, nrow=n_sites)
+
+# ACP on residuals
+pca <- prcomp(qresiduals,  scale=FALSE)
+sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
+sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
+sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
+
+# Correlation between PCA and LV loadings
+loadings <- data.frame(
+  pca=c(pca$rotation[, c("PC1", "PC2", "PC3")]),
+  lv=c(t(lambda_target)),
+  axis=rep(c("Axis 1", "Axis 2", "Axis 3"), each=n_species))
+p <- loadings |>
+  ggplot(aes(lv, pca, col=axis)) +
+  geom_point() +
+  facet_grid(rows=vars(axis)) +
+  xlab("lambda targets") +
+  ylab("PCA loadings") +
+  theme_bw() + guides(colour="none")
+ggsave(file.path(out_dir, "loadings_pca_lv_PIT.png"), p)
+corr <- loadings |>
+  group_by(axis) |>
+  summarize(corr=round(cor(pca, lv), 2)) |>
+  ungroup() |>
+  write_csv(file.path(out_dir, "loadings_corr_PIT.csv"))
+
+# Sorting species
+Y <- read.csv(
+  file=file.path(out_dir, "Y.csv"),
+  header=TRUE, row.names=1)
+Y_sort_pca <- Y
+Y_sort_pca[, 1] <- Y[, sp_max_PC1]
+Y_sort_pca[, 2] <- Y[, sp_max_PC2]
+Y_sort_pca[, 3] <- Y[, sp_max_PC3]
+Y_sort_pca[, sp_max_PC1] <- Y[, 1]
+Y_sort_pca[, sp_max_PC2] <- Y[, 2]
+Y_sort_pca[, sp_max_PC3] <- Y[, 3]
+
+# mod_5
+mod_5 <- parallel_inference(
+  Y_sort_pca, X,
+  nchains=nchains,
+  burnin=burnin, mcmc=mcmc, thin=thin,
+  n_latent=n_q,
+  starting_values=starting_values, seed=seed)
+
+# Rhat
+Rhat_5 <- compute_rhat(mod_5) |>
+  rename(maxRhat_PIT=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_5.csv"))
+
+# Plot traces
+mcmc_list <- mcmc_lambdas(
+  mod_5,
+  re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
+)
+png(file.path(out_dir, "mcmc_sort_pca_PIT.png"))
+plot(mcmc_list)
+dev.off()
 
 # =======================================
 # Approach comparison
 # =======================================
 
+# Load Rhat tables if necessary
+for (i in 1:5) {
+  if (!glue("Rhat_{i}") %in% ls()) {
+    ifile <- file.path(out_dir, glue("rhat_{i}.csv"))
+    identity_transformer(glue("Rhat_{i} <- read_csv(ifile)"))
+  }
+}
+
 Rhat_df <- Rhat_1 |>
   left_join(Rhat_2, by="Variable") |>
-  rename(maxRhat_no=maxRhat.x, maxRhat_to=maxRhat.y)
+  left_join(Rhat_3, by="Variable") |>
+  left_join(Rhat_4, by="Variable") |>
+  left_join(Rhat_5, by="Variable") |>
+  write_csv(file.path(out_dir, "Rhat_model_comparison.csv"))
 
 # End
