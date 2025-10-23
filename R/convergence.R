@@ -137,6 +137,7 @@ compute_vcv_cor_median <- function(model_output, id_target_species) {
   thin <-  model_output[[1]]$model_spec$thin
 
   # MCMC lists
+  mcmc_list_sp <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.sp"), arr2mcmc))
   mcmc_list_lambda <- mcmc.list(
     lapply(mcmc_list_sp[, grep("lambda", colnames(mcmc_list_sp[[1]]), value=TRUE)], arr2mcmc))
 
@@ -220,6 +221,16 @@ mcmc_lambdas <- function(model_output, re="lambdas") {
   mcmc_list_lambda <- mcmc.list(
     lapply(mcmc_list_sp[, grep(re, colnames(mcmc_list_sp[[1]]), value=TRUE)], arr2mcmc))
   return(mcmc_list_lambda)
+}
+
+##' @title Compute VCV and correlations matrices from lambdas
+##' @param lambdas Species loadings. Matrix of dimensions n_species * n_latent.
+##' @return VCV and correlations matrix
+##' @author Ghislain Vieilledent
+compute_vcov_cor <- function(lambdas) {
+  vcv <- lambdas %*% t(lambdas)
+  cor <- cov2cor(vcv)
+  return(list(vcv=vcv, cor=cor))
 }
 
 # End of file

@@ -476,6 +476,9 @@ dev.off()
 # Approach comparison
 # =======================================
 
+# Rhat
+# ---
+
 # Load Rhat tables if necessary
 for (i in 1:5) {
   if (!glue("Rhat_{i}") %in% ls()) {
@@ -491,19 +494,35 @@ Rhat_df <- Rhat_1 |>
   left_join(Rhat_5, by="Variable") |>
   write_csv(file.path(out_dir, "Rhat_model_comparison.csv"))
 
+# VCV, Cor
+# --------
+
 # Load vcv/cor tables if necessary
 for (i in 1:5) {
   if (!glue("vcv_cor_median_{i}") %in% ls()) {
-    ifile <- file.path(out_dir, glue("vcv_cor_median_{i}.csv"))
+    ifile <- file.path(out_dir, glue("vcv_cor_med_{i}.csv"))
     identity_transformer(glue("vcv_cor_median_{i} <- read_csv(ifile)"))
   }
 }
+
+# From lambda_target
+vcv_cor_target <- compute_vcov_cor(t(lambda_target))
+vcv_target <- vcv_cor_target$vcv
+cor_target <- vcv_cor_target$cor
+id_tsp <- c(1, 2, 3)
+sum_var_target <- sum(diag(vcv_target[id_tsp, id_tsp]))
+sum_cov_target <- sum(vcv_target[id_tsp, ]) - sum_var_target
+sum_cor_target <- sum(cor_target[id_tsp, ])
+var_names <- c("V_tsp", "absCov_tsp", "absCorr_tsp")
+sum_values <- round(c(sum_var_target, sum_cov_target, sum_cor_target), 2)
+vcv_cor_target <- data.frame(Variable=var_names, sum_target=sum_values)
 
 vcv_cor_median_df <- vcv_cor_median_1 |>
   left_join(vcv_cor_median_2, by="Variable") |>
   left_join(vcv_cor_median_3, by="Variable") |>
   left_join(vcv_cor_median_4, by="Variable") |>
   left_join(vcv_cor_median_5, by="Variable") |>
+  left_join(vcv_cor_target, by="Variable") |>
   write_csv(file.path(out_dir, "vcv_cor_median_model_comparison.csv"))
 
 # End
