@@ -97,6 +97,12 @@ Rhat_1 <- compute_rhat(mod_1) |>
   rename(maxRhat_NoSort=maxRhat) |>
   write_csv(file.path(out_dir, "rhat_1.csv"))
 
+# Sum of median VCV and Cor
+vcv_cor_median_1 <- compute_vcv_cor_median(
+  mod_1, id_target_species=c(1, 2, 3)) |>
+  rename(sum_NoSort=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_1.csv"))
+
 # Plot traces
 mcmc_list <- mcmc_lambdas(
   mod_1,
@@ -134,6 +140,13 @@ mod_2 <- parallel_inference(
 Rhat_2 <- compute_rhat(mod_2) |>
   rename(maxRhat_Sort=maxRhat) |>
   write_csv(file.path(out_dir, "rhat_2.csv"))
+
+# Sum of median VCV and Cor
+id_tsp <- c(4, 5, 6)
+vcv_cor_median_2 <- compute_vcv_cor_median(
+  mod_2, id_target_species=id_tsp) |>
+  rename(sum_Sort=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_2.csv"))
 
 # Plot traces
 mcmc_list <- mcmc_lambdas(
@@ -234,6 +247,13 @@ mod_3 <- parallel_inference(
 Rhat_3 <- compute_rhat(mod_3) |>
   rename(maxRhat_Zres=maxRhat) |>
   write_csv(file.path(out_dir, "rhat_3.csv"))
+
+# Sum of median VCV and Cor
+id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+vcv_cor_median_3 <- compute_vcv_cor_median(
+  mod_3, id_target_species=id_tsp) |>
+  rename(sum_Zres=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_3.csv"))
 
 # Plot traces
 mcmc_list <- mcmc_lambdas(
@@ -345,6 +365,13 @@ Rhat_4 <- compute_rhat(mod_4) |>
   rename(maxRhat_Dhar=maxRhat) |>
   write_csv(file.path(out_dir, "rhat_4.csv"))
 
+# Sum of median VCV and Cor
+id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+vcv_cor_median_4 <- compute_vcv_cor_median(
+  mod_4, id_target_species=id_tsp) |>
+  rename(sum_Dharm=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_4.csv"))
+
 # Plot traces
 mcmc_list <- mcmc_lambdas(
   mod_4,
@@ -429,6 +456,13 @@ Rhat_5 <- compute_rhat(mod_5) |>
   rename(maxRhat_PIT=maxRhat) |>
   write_csv(file.path(out_dir, "rhat_5.csv"))
 
+# Sum of median VCV and Cor
+id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+vcv_cor_median_5 <- compute_vcv_cor_median(
+  mod_5, id_target_species=id_tsp) |>
+  rename(sum_PIT=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_5.csv"))
+
 # Plot traces
 mcmc_list <- mcmc_lambdas(
   mod_5,
@@ -456,5 +490,20 @@ Rhat_df <- Rhat_1 |>
   left_join(Rhat_4, by="Variable") |>
   left_join(Rhat_5, by="Variable") |>
   write_csv(file.path(out_dir, "Rhat_model_comparison.csv"))
+
+# Load vcv/cor tables if necessary
+for (i in 1:5) {
+  if (!glue("vcv_cor_median_{i}") %in% ls()) {
+    ifile <- file.path(out_dir, glue("vcv_cor_median_{i}.csv"))
+    identity_transformer(glue("vcv_cor_median_{i} <- read_csv(ifile)"))
+  }
+}
+
+vcv_cor_median_df <- vcv_cor_median_1 |>
+  left_join(vcv_cor_median_2, by="Variable") |>
+  left_join(vcv_cor_median_3, by="Variable") |>
+  left_join(vcv_cor_median_4, by="Variable") |>
+  left_join(vcv_cor_median_5, by="Variable") |>
+  write_csv(file.path(out_dir, "vcv_cor_median_model_comparison.csv"))
 
 # End
