@@ -207,20 +207,22 @@ plot_rhat <- function(Rhat) {
 ##' @param model_output List of model output obtained from parallel
 ##'   computing
 ##' @param re Regular expression to select lambdas. Default to
-##'   "lambdas" for all lambdas. Could also be
+##'   "lambda" for all lambdas. Could also be
 ##'   "(sp_1\\.lambda_1|sp_4\\.lambda_1)" for example.
 ##' @return
 ##' @author Ghislain Vieilledent
-mcmc_lambdas <- function(model_output, re="lambdas") {
+get_mcmc_list_lambdas <- function(model_output, re="lambda") {
   # Parameters for coda object
   burnin <- model_output[[1]]$model_spec$burnin
   ngibbs <- burnin + model_output[[1]]$model_spec$mcmc
   thin <-  model_output[[1]]$model_spec$thin
   # MCMC lists
-  mcmc_list_sp <- mcmc.list(lapply(lapply(model_output,"[[","mcmc.sp"), arr2mcmc))
-  mcmc_list_lambda <- mcmc.list(
-    lapply(mcmc_list_sp[, grep(re, colnames(mcmc_list_sp[[1]]), value=TRUE)], arr2mcmc))
-  return(mcmc_list_lambda)
+  mcmc_list_sp <- mcmc.list(
+    lapply(lapply(model_output, "[[", "mcmc.sp"), arr2mcmc)
+  )
+  wcols <- grep(re, colnames(mcmc_list_sp[[1]]), value=TRUE)
+  mcmc_list_selection <- mcmc_list_sp[, wcols]
+  return(mcmc_list_selection)
 }
 
 ##' @title Compute VCV and correlations matrices from lambdas
@@ -231,6 +233,75 @@ compute_vcov_cor <- function(lambdas) {
   vcv <- lambdas %*% t(lambdas)
   cor <- cov2cor(vcv)
   return(list(vcv=vcv, cor=cor))
+}
+
+##' @title Tranform an mcmc list into a dataframe
+##' @param mcmc_list
+##' @return dataframe
+##' @author Ghislain Vieilledent
+mcmc_list2df <- function(mcmc_list) {
+  list_df <- lapply(mcmc_list, as.data.frame)
+  df <- dplyr::bind_rows(list_df)
+  return(df)
+}
+
+##' @title Comparing estimated and target species correlations
+##' @param model_output Model output with several chains
+##' @param lambda_target Lambda target values. Matrix with dimensions
+##'   n_q * n_species
+##' @param id_species Id of constrained species in the unsorted model
+##' @param estimate "mean" to compute mean or something else for median
+##' @return ggplot with correlation value
+##' @author Ghislain Vieilledent
+plot_corr_comp <- function(model_output, lambda_target,
+                           id_species, estimate="mean") {
+  mcmc_list_lambdas <- get_mcmc_list_lambdas(model_output)
+  df_lambdas <- mcmc_list2df(mcmc_list_lambdas)
+  if (estimate == "mean") {
+    lambda_est <- apply(df_lambdas, 2, mean)
+  } else {
+    lambda_est <- apply(df_lambdas, 2, median)
+  }
+  lambda_t <- c(lambda_target)
+  lambda_names <- names(lambda_est)
+  cor_value <- round(cor(lambda_t, lambda_est), 2)
+  slope <- ifelse(cor_value >= 0, 1, -1)
+  id_sp <- id_species
+  lambda_par <- vector()
+  for (i in id_sp) {
+    par <- paste0("sp_", i, paste0(".lambda_", 1:3))
+    lambda_par <- c(lambda_par, par)
+  }
+  csp <- lambda_names %in% lambda_par
+  df_plot_lambda <- data.frame(
+    lambda_est,
+    lambda_t,
+    lambda_names,
+    csp,
+    row.names=NULL)
+  # Plot
+  xrng <- range(lambda_t)
+  yrng <- range(lambda_est)
+  xymin <- floor(min(xrng, yrng))
+  xymax <- ceiling(max(xrng, yrng))
+  p <- tibble(df_plot_lambda) |>
+    ggplot(aes(x=lambda_t, y=lambda_est, col=csp)) +
+    geom_abline(slope=slope, intercept=0, col="black") +
+    geom_point() +
+    annotate("text",
+      x=0, y=xymax,
+      label=paste0("rho = ", cor_value),
+      hjust=0.5, vjust=1, size=6) +
+    xlab("Species loading targets") +
+    ylab("Species loading estimates") +
+    theme_bw(base_size=18) +
+    theme(legend.position="none") +
+    scale_color_manual(values=c(grey(0.6), "red")) +
+    xlim(-3, 3) +
+    ylim(-3, 3) +
+    coord_fixed(ratio=1, xlim=c(xymin, xymax),
+                ylim=c(xymin, xymax))
+  return(p)
 }
 
 # End of file

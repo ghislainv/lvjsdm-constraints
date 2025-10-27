@@ -104,7 +104,7 @@ vcv_cor_median_1 <- compute_vcv_cor_median(
   write_csv(file.path(out_dir, "vcv_cor_med_1.csv"))
 
 # Plot traces
-mcmc_list <- mcmc_lambdas(
+mcmc_list <- get_mcmc_list_lambdas(
   mod_1,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
@@ -149,7 +149,7 @@ vcv_cor_median_2 <- compute_vcv_cor_median(
   write_csv(file.path(out_dir, "vcv_cor_med_2.csv"))
 
 # Plot traces
-mcmc_list <- mcmc_lambdas(
+mcmc_list <- get_mcmc_list_lambdas(
   mod_2,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
@@ -256,7 +256,7 @@ vcv_cor_median_3 <- compute_vcv_cor_median(
   write_csv(file.path(out_dir, "vcv_cor_med_3.csv"))
 
 # Plot traces
-mcmc_list <- mcmc_lambdas(
+mcmc_list <- get_mcmc_list_lambdas(
   mod_3,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
@@ -373,7 +373,7 @@ vcv_cor_median_4 <- compute_vcv_cor_median(
   write_csv(file.path(out_dir, "vcv_cor_med_4.csv"))
 
 # Plot traces
-mcmc_list <- mcmc_lambdas(
+mcmc_list <- get_mcmc_list_lambdas(
   mod_4,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
@@ -464,7 +464,7 @@ vcv_cor_median_5 <- compute_vcv_cor_median(
   write_csv(file.path(out_dir, "vcv_cor_med_5.csv"))
 
 # Plot traces
-mcmc_list <- mcmc_lambdas(
+mcmc_list <- get_mcmc_list_lambdas(
   mod_5,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
@@ -514,7 +514,8 @@ sum_var_target <- sum(diag(vcv_target[id_tsp, id_tsp]))
 sum_cov_target <- sum(vcv_target[id_tsp, ]) - sum_var_target
 sum_cor_target <- sum(cor_target[id_tsp, ])
 var_names <- c("V_tsp", "absCov_tsp", "absCorr_tsp")
-sum_values <- round(c(sum_var_target, sum_cov_target, sum_cor_target), 2)
+sum_values <- round(c(sum_var_target, sum_cov_target,
+                      sum_cor_target), 2)
 vcv_cor_target <- data.frame(Variable=var_names, sum_target=sum_values)
 
 vcv_cor_median_df <- vcv_cor_median_1 |>
@@ -524,5 +525,23 @@ vcv_cor_median_df <- vcv_cor_median_1 |>
   left_join(vcv_cor_median_5, by="Variable") |>
   left_join(vcv_cor_target, by="Variable") |>
   write_csv(file.path(out_dir, "vcv_cor_median_model_comparison.csv"))
+
+# =======================================
+# Plot correlations estimates vs. target
+# =======================================
+
+# For lambdas
+p_1 <- plot_corr_comp(mod_1, lambda_target,
+                      id_species=c(1, 2, 3), "mean")
+ggsave(file.path(out_dir, "comp_loadings_1.png"))
+
+# Mod 2
+# Switch lambda_target
+lambda_123 <- lambda_target[, c(1, 2, 3)] 
+lambda_target[, c(1, 2, 3)] <- lambda_target[, c(4, 5, 6)]
+lambda_target[, c(4, 5, 6)] <- lambda_123
+p_2 <- plot_corr_comp(mod_2, lambda_target,
+                      id_species=c(1, 2, 3), "mean")
+ggsave(file.path(out_dir, "comp_loadings_2.png"))
 
 # End
