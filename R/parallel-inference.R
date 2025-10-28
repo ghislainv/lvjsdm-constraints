@@ -33,7 +33,7 @@ parallel_inference <- function(Y, X, nchains, burnin, mcmc, thin,
       shape_Valpha=0.5,
       rate_Valpha=0.0005,
       mu_beta=0, V_beta=1,
-      mu_lambda=0, V_lambda=1,
+      mu_lambda=0, V_lambda=2,
       seed=seed, verbose=1)
     return(mod)
   }

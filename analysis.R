@@ -44,6 +44,8 @@ lambda_target <- data$lambda_target
 n_sites <- nrow(X)
 n_q <- ncol(X)
 n_species <- ncol(Y)
+ofile <- file.path(out_dir, "lambda_target.rda")
+save(lambda_target, file=ofile)
 
 # =======================================
 # MCMC parameters
@@ -121,12 +123,8 @@ Y <- read.csv(
   file=file.path(out_dir, "Y.csv"),
   header=TRUE, row.names=1)
 Y_sort <- Y
-Y_sort[, 1] <- Y[, 4]
-Y_sort[, 2] <- Y[, 5]
-Y_sort[, 3] <- Y[, 6]
-Y_sort[, 4] <- Y[, 1]
-Y_sort[, 5] <- Y[, 2]
-Y_sort[, 6] <- Y[, 3]
+Y_sort[, c(1, 2, 3)] <- Y[, c(4, 5, 6)]
+Y_sort[, c(4, 5, 6)] <- Y[, c(1, 2, 3)]
 
 # mod_2
 mod_2 <- parallel_inference(
@@ -203,6 +201,7 @@ pca <- prcomp(residuals,  scale=FALSE)
 sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
+sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -228,12 +227,8 @@ Y <- read.csv(
   file=file.path(out_dir, "Y.csv"),
   header=TRUE, row.names=1)
 Y_sort_pca <- Y
-Y_sort_pca[, 1] <- Y[, sp_max_PC1]
-Y_sort_pca[, 2] <- Y[, sp_max_PC2]
-Y_sort_pca[, 3] <- Y[, sp_max_PC3]
-Y_sort_pca[, sp_max_PC1] <- Y[, 1]
-Y_sort_pca[, sp_max_PC2] <- Y[, 2]
-Y_sort_pca[, sp_max_PC3] <- Y[, 3]
+Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
+Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
 # mod_3
 mod_3 <- parallel_inference(
@@ -310,7 +305,7 @@ qres <- DHARMa::getQuantile(
   simulations=sim_data,
   observed=c(as.matrix(Y)),
   integerResponse=TRUE,
-  method="PIT")
+  method="traditional")
 
 # Scaled residuals as matrix nsites * nspecies
 qresiduals <- matrix(qres, nrow=n_sites)
@@ -320,6 +315,7 @@ pca <- prcomp(qresiduals,  scale=FALSE)
 sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
+sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -345,12 +341,8 @@ Y <- read.csv(
   file=file.path(out_dir, "Y.csv"),
   header=TRUE, row.names=1)
 Y_sort_pca <- Y
-Y_sort_pca[, 1] <- Y[, sp_max_PC1]
-Y_sort_pca[, 2] <- Y[, sp_max_PC2]
-Y_sort_pca[, 3] <- Y[, sp_max_PC3]
-Y_sort_pca[, sp_max_PC1] <- Y[, 1]
-Y_sort_pca[, sp_max_PC2] <- Y[, 2]
-Y_sort_pca[, sp_max_PC3] <- Y[, 3]
+Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
+Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
 # mod_4
 mod_4 <- parallel_inference(
@@ -411,6 +403,7 @@ pca <- prcomp(qresiduals,  scale=FALSE)
 sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
+sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -436,12 +429,8 @@ Y <- read.csv(
   file=file.path(out_dir, "Y.csv"),
   header=TRUE, row.names=1)
 Y_sort_pca <- Y
-Y_sort_pca[, 1] <- Y[, sp_max_PC1]
-Y_sort_pca[, 2] <- Y[, sp_max_PC2]
-Y_sort_pca[, 3] <- Y[, sp_max_PC3]
-Y_sort_pca[, sp_max_PC1] <- Y[, 1]
-Y_sort_pca[, sp_max_PC2] <- Y[, 2]
-Y_sort_pca[, sp_max_PC3] <- Y[, 3]
+Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
+Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
 # mod_5
 mod_5 <- parallel_inference(

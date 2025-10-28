@@ -282,8 +282,7 @@ plot_corr_comp <- function(model_output, lambda_target,
   # Plot
   xrng <- range(lambda_t)
   yrng <- range(lambda_est)
-  xymin <- floor(min(xrng, yrng))
-  xymax <- ceiling(max(xrng, yrng))
+  xymax <- ceiling(max(abs(xrng), abs(yrng)))
   p <- tibble(df_plot_lambda) |>
     ggplot(aes(x=lambda_t, y=lambda_est, col=csp)) +
     geom_abline(slope=slope, intercept=0, col="black") +
@@ -297,10 +296,8 @@ plot_corr_comp <- function(model_output, lambda_target,
     theme_bw(base_size=18) +
     theme(legend.position="none") +
     scale_color_manual(values=c(grey(0.6), "red")) +
-    xlim(-3, 3) +
-    ylim(-3, 3) +
-    coord_fixed(ratio=1, xlim=c(xymin, xymax),
-                ylim=c(xymin, xymax))
+    coord_fixed(ratio=1, xlim=c(-xymax, xymax),
+                ylim=c(-xymax, xymax))
   return(p)
 }
 
