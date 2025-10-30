@@ -58,6 +58,13 @@ ngibbs <- burnin + mcmc
 nchains <- 8
 
 # =======================================
+# Priors
+# =======================================
+
+# Prior variance for lambdas
+V_lambda <- 1
+
+# =======================================
 # Starting values
 # =======================================
 
@@ -91,7 +98,7 @@ mod_1 <- parallel_inference(
   Y, X,
   nchains=nchains,
   burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q,
+  n_latent=n_q, V_lambda=V_lambda,
   starting_values=starting_values, seed=seed)
 
 # Rhat
@@ -131,7 +138,7 @@ mod_2 <- parallel_inference(
   Y_sort, X,
   nchains=nchains,
   burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q,
+  n_latent=n_q, V_lambda=V_lambda,
   starting_values=starting_values, seed=seed)
 
 # Rhat
@@ -235,7 +242,7 @@ mod_3 <- parallel_inference(
   Y_sort_pca, X,
   nchains=nchains,
   burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q,
+  n_latent=n_q, V_lambda=V_lambda,
   starting_values=starting_values, seed=seed)
 
 # Rhat
@@ -349,7 +356,7 @@ mod_4 <- parallel_inference(
   Y_sort_pca, X,
   nchains=nchains,
   burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q,
+  n_latent=n_q, V_lambda=V_lambda,
   starting_values=starting_values, seed=seed)
 
 # Rhat
@@ -437,7 +444,7 @@ mod_5 <- parallel_inference(
   Y_sort_pca, X,
   nchains=nchains,
   burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q,
+  n_latent=n_q, V_lambda=V_lambda,
   starting_values=starting_values, seed=seed)
 
 # Rhat
@@ -526,6 +533,7 @@ ggsave(file.path(out_dir, "comp_loadings_1.png"))
 
 # Mod 2
 # Switch lambda_target
+load(file=file.path(out_dir, "lambda_target.rda"))
 lambda_123 <- lambda_target[, c(1, 2, 3)] 
 lambda_target[, c(1, 2, 3)] <- lambda_target[, c(4, 5, 6)]
 lambda_target[, c(4, 5, 6)] <- lambda_123
