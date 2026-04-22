@@ -264,8 +264,7 @@ plot_corr_comp <- function(model_output, lambda_target,
   }
   lambda_t <- c(lambda_target)
   lambda_names <- names(lambda_est)
-  cor_value <- round(cor(lambda_t, lambda_est), 2)
-  slope <- ifelse(cor_value >= 0, 1, -1)
+  slope <- 1  # ifelse(cor_value >= 0, 1, -1)
   id_sp <- id_species
   lambda_par <- vector()
   for (i in id_sp) {
@@ -273,20 +272,34 @@ plot_corr_comp <- function(model_output, lambda_target,
     lambda_par <- c(lambda_par, par)
   }
   csp <- lambda_names %in% lambda_par
+  axis <- rep(1:3, length(lambda_names) / 3)
   df_plot_lambda <- data.frame(
     lambda_est,
     lambda_t,
     lambda_names,
     csp,
+    axis,
     row.names=NULL)
+  # Correlation sign by axis
+  sign_cor_by_axis <-  df_plot_lambda |>
+    group_by(axis) |>
+    summarize(cor=cor(lambda_t, lambda_est)) |>
+    mutate(neg=ifelse(cor < 0, -1, 1)) |>
+    select(neg) |> pull()
+  # Change sign
+  df_plot_lambda <- df_plot_lambda |>
+    mutate(lambda_est=lambda_est * rep(sign_cor_by_axis, length(lambda_names) / 3))
+  # Correlation
+  cor_value <- round(cor(df_plot_lambda$lambda_t,
+                         df_plot_lambda$lambda_est), 2)
   # Plot
-  xrng <- range(lambda_t)
-  yrng <- range(lambda_est)
+  xrng <- range(df_plot_lambda$lambda_t)
+  yrng <- range(df_plot_lambda$lambda_est)
   xymax <- ceiling(max(abs(xrng), abs(yrng)))
   p <- tibble(df_plot_lambda) |>
-    ggplot(aes(x=lambda_t, y=lambda_est, col=csp)) +
+    ggplot(aes(x=lambda_t, y=lambda_est)) +
     geom_abline(slope=slope, intercept=0, col="black") +
-    geom_point() +
+    geom_point(aes(col=csp, shape=factor(axis))) +
     annotate("text",
       x=0, y=xymax,
       label=paste0("rho = ", cor_value),
