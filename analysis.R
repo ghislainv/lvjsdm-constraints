@@ -21,6 +21,10 @@ source("R/sim-data.R")
 source("R/parallel-inference.R")
 source("R/convergence.R")
 
+# Model names
+model_names <- c("nosort", "sort", "Z", "dharma", "PIT", "qres")
+n_models <- 6
+
 # =======================================
 # Simulate data
 # =======================================
@@ -93,28 +97,34 @@ starting_values <- list(
 # Model 1 no sorting --> convergence problems
 # ===========================================
 
-# mod_1
-mod_1 <- parallel_inference(
-  Y, X,
-  nchains=nchains,
-  burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q, V_lambda=V_lambda,
-  starting_values=starting_values, seed=seed)
+# mod_nosort
+ofile <- file.path(out_dir, "mod_nosort.rda")
+if (!file.exists(ofile)) {
+  mod_nosort <- parallel_inference(
+    Y, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_nosort, file=ofile)
+} else {
+  load(ofile)
+}
 
 # Rhat
-Rhat_1 <- compute_rhat(mod_1) |>
-  rename(maxRhat_NoSort=maxRhat) |>
-  write_csv(file.path(out_dir, "rhat_1.csv"))
+Rhat_nosort <- compute_rhat(mod_nosort) |>
+  rename(maxRhat_nosort=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_nosort.csv"))
 
 # Sum of median VCV and Cor
-vcv_cor_median_1 <- compute_vcv_cor_median(
-  mod_1, id_target_species=c(1, 2, 3)) |>
-  rename(sum_NoSort=sum) |>
-  write_csv(file.path(out_dir, "vcv_cor_med_1.csv"))
+vcv_cor_median_nosort <- compute_vcv_cor_median(
+  mod_nosort, id_target_species=c(1, 2, 3)) |>
+  rename(sum_nosort=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_nosort.csv"))
 
 # Plot traces
 mcmc_list <- get_mcmc_list_lambdas(
-  mod_1,
+  mod_nosort,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
 png(here(out_dir, "mcmc_nosort.png"))
@@ -126,36 +136,44 @@ dev.off()
 # =======================================
 
 # Sorting species
+sp_max <- c(4, 5, 6)
+sp_max_sort <- sp_max
 Y <- read.csv(
   file=file.path(out_dir, "Y.csv"),
   header=TRUE, row.names=1)
 Y_sort <- Y
-Y_sort[, c(1, 2, 3)] <- Y[, c(4, 5, 6)]
-Y_sort[, c(4, 5, 6)] <- Y[, c(1, 2, 3)]
+Y_sort[, c(1, 2, 3)] <- Y[, sp_max]
+Y_sort[, sp_max] <- Y[, c(1, 2, 3)]
 
-# mod_2
-mod_2 <- parallel_inference(
-  Y_sort, X,
-  nchains=nchains,
-  burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q, V_lambda=V_lambda,
-  starting_values=starting_values, seed=seed)
+# mod_sort
+ofile <- file.path(out_dir, "mod_sort.rda")
+if (!file.exists(ofile)) {
+  mod_sort <- parallel_inference(
+    Y_sort, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_sort, file=ofile)
+} else {
+  load(ofile)
+}
 
 # Rhat
-Rhat_2 <- compute_rhat(mod_2) |>
-  rename(maxRhat_Sort=maxRhat) |>
-  write_csv(file.path(out_dir, "rhat_2.csv"))
+Rhat_sort <- compute_rhat(mod_sort) |>
+  rename(maxRhat_sort=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_sort.csv"))
 
 # Sum of median VCV and Cor
-id_tsp <- c(4, 5, 6)
-vcv_cor_median_2 <- compute_vcv_cor_median(
-  mod_2, id_target_species=id_tsp) |>
-  rename(sum_Sort=sum) |>
-  write_csv(file.path(out_dir, "vcv_cor_med_2.csv"))
+id_tsp <- sp_max_sort
+vcv_cor_median_sort <- compute_vcv_cor_median(
+  mod_sort, id_target_species=id_tsp) |>
+  rename(sum_sort=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_sort.csv"))
 
 # Plot traces
 mcmc_list <- get_mcmc_list_lambdas(
-  mod_2,
+  mod_sort,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
 png(file.path(out_dir, "mcmc_sort.png"))
@@ -182,7 +200,8 @@ mod_nolv <- parallel_inference(
   nchains=1,
   burnin=burnin, mcmc=mcmc, thin=thin,
   n_latent=0,
-  starting_values=starting_values_nolv, seed=seed)
+  starting_values=starting_values_nolv,
+  seed=seed)
 mod_nolv <- mod_nolv[[1]]
 
 # =======================================
@@ -209,6 +228,7 @@ sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
 sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+sp_max_Z <- sp_max
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -222,12 +242,12 @@ p <- loadings |>
   xlab("lambda targets") +
   ylab("PCA loadings") +
   theme_bw() + guides(colour="none")
-ggsave(file.path(out_dir, "loadings_pca_lv.png"), p)
+ggsave(file.path(out_dir, "loadings_pca_lv_Z.png"), p)
 corr <- loadings |>
   group_by(axis) |>
   summarize(corr=round(cor(pca, lv), 2)) |>
   ungroup() |>
-  write_csv(file.path(out_dir, "loadings_corr.csv"))
+  write_csv(file.path(out_dir, "loadings_corr_Z.csv"))
 
 # Sorting species
 Y <- read.csv(
@@ -237,32 +257,38 @@ Y_sort_pca <- Y
 Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
 Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
-# mod_3
-mod_3 <- parallel_inference(
-  Y_sort_pca, X,
-  nchains=nchains,
-  burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q, V_lambda=V_lambda,
-  starting_values=starting_values, seed=seed)
+# mod_Z
+ofile <- file.path(out_dir, "mod_Z.rda")
+if (!file.exists(ofile)) {
+  mod_Z <- parallel_inference(
+    Y_sort_pca, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_Z, file=ofile)
+} else {
+  load(ofile)
+}
 
 # Rhat
-Rhat_3 <- compute_rhat(mod_3) |>
-  rename(maxRhat_Zres=maxRhat) |>
-  write_csv(file.path(out_dir, "rhat_3.csv"))
+Rhat_Z <- compute_rhat(mod_Z) |>
+  rename(maxRhat_Z=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_Z.csv"))
 
 # Sum of median VCV and Cor
-id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
-vcv_cor_median_3 <- compute_vcv_cor_median(
-  mod_3, id_target_species=id_tsp) |>
-  rename(sum_Zres=sum) |>
-  write_csv(file.path(out_dir, "vcv_cor_med_3.csv"))
+id_tsp <- sp_max_Z
+vcv_cor_median_Z <- compute_vcv_cor_median(
+  mod_Z, id_target_species=id_tsp) |>
+  rename(sum_Z=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_Z.csv"))
 
 # Plot traces
 mcmc_list <- get_mcmc_list_lambdas(
-  mod_3,
+  mod_Z,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
-png(file.path(out_dir, "mcmc_sort_pca.png"))
+png(file.path(out_dir, "mcmc_Z.png"))
 plot(mcmc_list)
 dev.off()
 
@@ -323,6 +349,7 @@ sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
 sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+sp_max_dharma <- sp_max
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -351,32 +378,38 @@ Y_sort_pca <- Y
 Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
 Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
-# mod_4
-mod_4 <- parallel_inference(
-  Y_sort_pca, X,
-  nchains=nchains,
-  burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q, V_lambda=V_lambda,
-  starting_values=starting_values, seed=seed)
-
+# mod_dharma
+ofile <- file.path(out_dir, "mod_dharma.rda")
+if (!file.exists(ofile)) {
+  mod_dharma <- parallel_inference(
+    Y_sort_pca, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_dharma, file=ofile)
+} else {
+  load(ofile)
+}
+    
 # Rhat
-Rhat_4 <- compute_rhat(mod_4) |>
-  rename(maxRhat_Dhar=maxRhat) |>
-  write_csv(file.path(out_dir, "rhat_4.csv"))
+Rhat_dharma <- compute_rhat(mod_dharma) |>
+  rename(maxRhat_dharma=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_dharma.csv"))
 
 # Sum of median VCV and Cor
-id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
-vcv_cor_median_4 <- compute_vcv_cor_median(
-  mod_4, id_target_species=id_tsp) |>
-  rename(sum_Dharm=sum) |>
-  write_csv(file.path(out_dir, "vcv_cor_med_4.csv"))
+id_tsp <- sp_max_dharma
+vcv_cor_median_dharma <- compute_vcv_cor_median(
+  mod_dharma, id_target_species=id_tsp) |>
+  rename(sum_dharma=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_dharma.csv"))
 
 # Plot traces
 mcmc_list <- get_mcmc_list_lambdas(
-  mod_4,
+  mod_dharma,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
-png(file.path(out_dir, "mcmc_sort_pca_dharma.png"))
+png(file.path(out_dir, "mcmc_dharma.png"))
 plot(mcmc_list)
 dev.off()
 
@@ -399,7 +432,6 @@ observed <- c(as.matrix(Y))
 # Compute PIT residuals
 min <- apply(simulations < observed, 1, sum) / n_sim
 max <- apply(simulations <= observed, 1, sum) / n_sim
-set.seed(seed)
 PIT_residuals <- runif(n_sites * n_species, min, max)
 
 # Residuals as matrix nsites * nspecies
@@ -411,6 +443,7 @@ sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
 sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
 sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
 sp_max <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+sp_max_PIT <- sp_max
 
 # Correlation between PCA and LV loadings
 loadings <- data.frame(
@@ -439,32 +472,146 @@ Y_sort_pca <- Y
 Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
 Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
 
-# mod_5
-mod_5 <- parallel_inference(
-  Y_sort_pca, X,
-  nchains=nchains,
-  burnin=burnin, mcmc=mcmc, thin=thin,
-  n_latent=n_q, V_lambda=V_lambda,
-  starting_values=starting_values, seed=seed)
-
+# mod_PIT
+ofile <- file.path(out_dir, "mod_PIT.rda")
+if (!file.exists(ofile)) {
+  mod_PIT <- parallel_inference(
+    Y_sort_pca, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_PIT, file=ofile)
+} else {
+  load(ofile)
+}
+  
 # Rhat
-Rhat_5 <- compute_rhat(mod_5) |>
+Rhat_PIT <- compute_rhat(mod_PIT) |>
   rename(maxRhat_PIT=maxRhat) |>
-  write_csv(file.path(out_dir, "rhat_5.csv"))
+  write_csv(file.path(out_dir, "rhat_PIT.csv"))
 
 # Sum of median VCV and Cor
-id_tsp <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
-vcv_cor_median_5 <- compute_vcv_cor_median(
-  mod_5, id_target_species=id_tsp) |>
+id_tsp <- sp_max_PIT
+vcv_cor_median_PIT <- compute_vcv_cor_median(
+  mod_PIT, id_target_species=id_tsp) |>
   rename(sum_PIT=sum) |>
-  write_csv(file.path(out_dir, "vcv_cor_med_5.csv"))
+  write_csv(file.path(out_dir, "vcv_cor_med_PIT.csv"))
 
 # Plot traces
 mcmc_list <- get_mcmc_list_lambdas(
-  mod_5,
+  mod_PIT,
   re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
 )
-png(file.path(out_dir, "mcmc_sort_pca_PIT.png"))
+png(file.path(out_dir, "mcmc_PIT.png"))
+plot(mcmc_list)
+dev.off()
+
+# ===========================================
+# Model 6 sorting species automatically
+# using n_sim PCA on quantile residuals computed manually
+# ===========================================
+
+# Observations
+y <- c(as.matrix(Y))
+
+# Predicted probabilities
+p_pred <- matrix(c(theta_sim), ncol=n_sim)
+
+# 1. Calculate the bounds of the interval [a, b]
+# pbinom(k, size, prob) is the CDF of the binomial distribution
+a <- pbinom(y - 1, size = 1, prob = p_pred)
+b <- pbinom(y, size = 1, prob = p_pred)
+
+# 2. Random sampling (Jittering)
+# Draw a uniform value u within the interval [a, b]
+# This handles the discreteness of the binomial distribution
+u <- matrix(runif(length(y) * n_sim, min = a, max = b), ncol=n_sim)
+
+# 3. Transformation via the normal quantile function (Probit)
+# qnorm transforms probabilities into normal distribution quantiles
+qres <- qnorm(u)
+
+# 4. PCA on residuals and species with highest coordinates
+sp_max_mat <- matrix(NA, nrow=3, ncol=n_sim)
+for (i in 1:n_sim) {
+  # Residuals as matrix nsites * nspecies
+  qresiduals <- matrix(qres[, i], ncol=n_species)
+  # ACP on residuals
+  pca <- prcomp(qresiduals,  scale=FALSE)
+  sp_max_PC1 <- which.max(abs(pca$rotation[, "PC1"]))
+  sp_max_PC2 <- which.max(abs(pca$rotation[, "PC2"]))
+  sp_max_PC3 <- which.max(abs(pca$rotation[, "PC3"]))
+  sp_max_mat[, i] <- c(sp_max_PC1, sp_max_PC2, sp_max_PC3)
+}
+# Function to get the mode of a vector 
+get_mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
+}
+# Get species with highest coordinates on average
+sp_max <- apply(sp_max_mat, 1, get_mode)
+sp_max_qres <- sp_max
+
+# Correlation between PCA and LV loadings
+loadings <- data.frame(
+  pca=c(pca$rotation[, c("PC1", "PC2", "PC3")]),
+  lv=c(t(lambda_target)),
+  axis=rep(c("Axis 1", "Axis 2", "Axis 3"), each=n_species))
+p <- loadings |>
+  ggplot(aes(lv, pca, col=axis)) +
+  geom_point() +
+  facet_grid(rows=vars(axis)) +
+  xlab("lambda targets") +
+  ylab("PCA loadings") +
+  theme_bw() + guides(colour="none")
+ggsave(file.path(out_dir, "loadings_pca_lv_qres.png"), p)
+corr <- loadings |>
+  group_by(axis) |>
+  summarize(corr=round(cor(pca, lv), 2)) |>
+  ungroup() |>
+  write_csv(file.path(out_dir, "loadings_corr_qres.csv"))
+
+# Sorting species
+Y <- read.csv(
+  file=file.path(out_dir, "Y.csv"),
+  header=TRUE, row.names=1)
+Y_sort_pca <- Y
+Y_sort_pca[, c(1, 2, 3)] <- Y[, sp_max]
+Y_sort_pca[, sp_max] <- Y[, c(1, 2, 3)]
+
+# mod_qres
+ofile <- file.path(out_dir, "mod_qres.rda")
+if (!file.exists(ofile)) {
+  mod_qres <- parallel_inference(
+    Y_sort_pca, X,
+    nchains=nchains,
+    burnin=burnin, mcmc=mcmc, thin=thin,
+    n_latent=n_q, V_lambda=V_lambda,
+    starting_values=starting_values, seed=seed)
+  save(mod_qres, file=ofile)
+} else {
+  load(ofile)
+}
+ 
+# Rhat
+Rhat_qres <- compute_rhat(mod_qres) |>
+  rename(maxRhat_qres=maxRhat) |>
+  write_csv(file.path(out_dir, "rhat_qres.csv"))
+
+# Sum of median VCV and Cor
+id_tsp <- sp_max_qres
+vcv_cor_median_qres <- compute_vcv_cor_median(
+  mod_qres, id_target_species=id_tsp) |>
+  rename(sum_qres=sum) |>
+  write_csv(file.path(out_dir, "vcv_cor_med_qres.csv"))
+
+# Plot traces
+mcmc_list <- get_mcmc_list_lambdas(
+  mod_qres,
+  re="(sp_1\\.lambda_1|sp_4\\.lambda_1)"
+)
+png(file.path(out_dir, "mcmc_qres.png"))
 plot(mcmc_list)
 dev.off()
 
@@ -476,28 +623,31 @@ dev.off()
 # ---
 
 # Load Rhat tables if necessary
-for (i in 1:5) {
-  if (!glue("Rhat_{i}") %in% ls()) {
-    ifile <- file.path(out_dir, glue("rhat_{i}.csv"))
-    identity_transformer(glue("Rhat_{i} <- read_csv(ifile)"))
+for (i in 1:n_models) {
+  mod <- model_names[i]
+  if (!glue("Rhat_{mod}") %in% ls()) {
+    ifile <- file.path(out_dir, glue("rhat_{mod}.csv"))
+    identity_transformer(glue("Rhat_{mod} <- read_csv(ifile)"))
   }
 }
 
-Rhat_df <- Rhat_1 |>
-  left_join(Rhat_2, by="Variable") |>
-  left_join(Rhat_3, by="Variable") |>
-  left_join(Rhat_4, by="Variable") |>
-  left_join(Rhat_5, by="Variable") |>
+Rhat_df <- Rhat_nosort |>
+  left_join(Rhat_sort, by="Variable") |>
+  left_join(Rhat_Z, by="Variable") |>
+  left_join(Rhat_dharma, by="Variable") |>
+  left_join(Rhat_PIT, by="Variable") |>
+  left_join(Rhat_qres, by="Variable") |>
   write_csv(file.path(out_dir, "Rhat_model_comparison.csv"))
 
 # VCV, Cor
 # --------
 
 # Load vcv/cor tables if necessary
-for (i in 1:5) {
-  if (!glue("vcv_cor_median_{i}") %in% ls()) {
-    ifile <- file.path(out_dir, glue("vcv_cor_med_{i}.csv"))
-    identity_transformer(glue("vcv_cor_median_{i} <- read_csv(ifile)"))
+for (i in 1:n_models) {
+  mod <- model_names[i]
+  if (!glue("vcv_cor_median_{mod}") %in% ls()) {
+    ifile <- file.path(out_dir, glue("vcv_cor_med_{mod}.csv"))
+    identity_transformer(glue("vcv_cor_median_{mod} <- read_csv(ifile)"))
   }
 }
 
@@ -514,11 +664,12 @@ sum_values <- round(c(sum_var_target, sum_cov_target,
                       sum_cor_target), 2)
 vcv_cor_target <- data.frame(Variable=var_names, sum_target=sum_values)
 
-vcv_cor_median_df <- vcv_cor_median_1 |>
-  left_join(vcv_cor_median_2, by="Variable") |>
-  left_join(vcv_cor_median_3, by="Variable") |>
-  left_join(vcv_cor_median_4, by="Variable") |>
-  left_join(vcv_cor_median_5, by="Variable") |>
+vcv_cor_median_df <- vcv_cor_median_nosort |>
+  left_join(vcv_cor_median_sort, by="Variable") |>
+  left_join(vcv_cor_median_Z, by="Variable") |>
+  left_join(vcv_cor_median_dharma, by="Variable") |>
+  left_join(vcv_cor_median_PIT, by="Variable") |>
+  left_join(vcv_cor_median_qres, by="Variable") |>
   left_join(vcv_cor_target, by="Variable") |>
   write_csv(file.path(out_dir, "vcv_cor_median_model_comparison.csv"))
 
@@ -526,19 +677,34 @@ vcv_cor_median_df <- vcv_cor_median_1 |>
 # Plot correlations estimates vs. target
 # =======================================
 
+# ------------------------
 # For lambdas
-p_1 <- plot_corr_comp(mod_1, lambda_target,
-                      id_species=c(1, 2, 3), "mean")
-ggsave(file.path(out_dir, "comp_loadings_1.png"))
+# ------------------------
 
-# Mod 2
-# Switch lambda_target
 load(file=file.path(out_dir, "lambda_target.rda"))
 lambda_123 <- lambda_target[, c(1, 2, 3)] 
-lambda_target[, c(1, 2, 3)] <- lambda_target[, c(4, 5, 6)]
-lambda_target[, c(4, 5, 6)] <- lambda_123
-p_2 <- plot_corr_comp(mod_2, lambda_target,
-                      id_species=c(1, 2, 3), "mean")
-ggsave(file.path(out_dir, "comp_loadings_2.png"))
+
+# 1. mod_nosort
+p_nosort <- plot_corr_comp(mod_nosort, lambda_target,
+                           id_species=c(1, 2, 3), "mean") +
+  ggtitle("Model nosort")
+
+# 2-6 models
+for (i in 2:n_models) {
+  mod <- model_names[i]
+  sp_max <- identity_transformer(glue("sp_max_{mod}"))
+  lambda_target_sort <- lambda_target
+  lambda_target_sort[, c(1, 2, 3)] <- lambda_target[, sp_max]
+  lambda_target_sort[, sp_max] <- lambda_123
+  model <- identity_transformer(glue("mod_{mod}"))
+  p <- plot_corr_comp(model, lambda_target_sort,
+                      id_species=c(1, 2, 3), "mean") +
+    ggtitle(glue("Model {mod}"))
+  identity_transformer(glue("p_{mod} <- p"))
+}
+
+library(patchwork)
+p_all <- p_nosort + p_sort + p_Z + p_dharma + p_PIT + p_qres + plot_layout(ncol=3)
+p_all
 
 # End

@@ -6,6 +6,7 @@ outputs
 .Rapp.history
 
 # Session Data files
+*.rda
 .RData
 .RDataTmp
 

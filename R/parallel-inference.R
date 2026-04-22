@@ -16,8 +16,8 @@ require(foreach)
 ##' @return List of jSDM model outputs
 ##' @author Ghislain Vieilledent
 parallel_inference <- function(Y, X, nchains, burnin, mcmc, thin,
-                               starting_values, n_latent, V_lambda,
-                               seed) {
+                               starting_values, n_latent, V_lambda=NULL,
+                               seed=1234) {
   ## Make a cluster for parallel MCMCs
   ncores <- nchains ## One core for each MCMC chains
   clust <- makeCluster(ncores)
